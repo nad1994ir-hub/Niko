@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>NIKO CITY</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;touch-action:none;font-family:Arial,sans-serif}
+canvas{display:block;width:100vw;height:100vh}
+#start{position:fixed;inset:0;background:#151515;display:flex;align-items:center;justify-content:center;z-index:5}
+.card{text-align:center;color:#fff;background:#222;padding:28px;border-radius:24px;box-shadow:0 10px 40px #0008}
+.card h1{font-size:42px;margin:0 0 8px}.card p{opacity:.8}
+#play{border:0;border-radius:18px;padding:15px 35px;font-size:20px;font-weight:bold;background:#fff;color:#111}
+#help{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#0009;color:#fff;padding:8px 12px;border-radius:14px;font-size:12px;z-index:2;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="start"><div class="card"><h1>NIKO CITY</h1><p>Açıq şəhər • maşın • polis • pul • missiya</p><button id="play">OYNA ▶</button></div></div>
+<div id="help">Mavi dairə: polis • Sarı: missiya • Yaşıl: pul</div>
+<canvas id="c"></canvas>
+<script>
+const C=document.getElementById('c'),ctx=C.getContext('2d');let W,H,D;
+function size(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;C.width=W*D;C.height=H*D;ctx.setTransform(D,0,0,D,0,0)}addEventListener('resize',size);size();
+const key={};let running=false;
+addEventListener('keydown',e=>{key[e.key.toLowerCase()]=true;if(e.key===' ')e.preventDefault()});
+addEventListener('keyup',e=>key[e.key.toLowerCase()]=false);
+document.getElementById('play').onclick=()=>{document.getElementById('start').style.display='none';running=true};
+let p={x:620,y:430},car={x:700,y:430,a:0},inCar=false,money=500,wanted=0,mission=0,health=100,police=[];
+const touch={u:0,d:0,l:0,r:0};
+function button(x,y,r,fn){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle='#ffffff35';ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 24px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fn.t,x,y);return [x,y,r,fn.f]}
+let buttons=[];
+C.addEventListener('pointerdown',e=>{for(const b of buttons){if(Math.hypot(e.clientX-b[0],e.clientY-b[1])<b[2]){b[3]();e.preventDefault()}}});
+function interact(){if(Math.hypot(p.x-car.x,p.y-car.y)<85){inCar=!inCar;if(!inCar){p.x=car.x+55;p.y=car.y}}}
+function action(){if(!inCar){wanted=Math.min(5,wanted+1);money=Math.max(0,money-25)}}
+function missionStart(){if(mission===0&&Math.hypot(p.x-1260,p.y-170)<70){mission=1;money+=100}}
+function update(){
+ if(!running)return;
+ let s=inCar?5:3;
+ if(inCar){
+  if(key.w||key.arrowup)car.a-=.045;if(key.s||key.arrowdown)car.a+=.045;
+  let v=(key.w||key.arrowup?1:0)-(key.s||key.arrowdown?1:0);
+  car.x+=Math.sin(car.a)*v*s;car.y-=Math.cos(car.a)*v*s;p.x=car.x;p.y=car.y;
+ }else{
+  if(key.w||key.arrowup)p.y-=s;if(key.s||key.arrowdown)p.y+=s;if(key.a||key.arrowleft)p.x-=s;if(key.d||key.arrowright)p.x+=s;
+ }
+ if(key.e){interact();key.e=false}if(key.f){action();key.f=false}if(key.q){missionStart();key.q=false}
+ p.x=Math.max(25,Math.min(1975,p.x));p.y=Math.max(25,Math.min(1175,p.y));
+ if(mission===1&&Math.hypot(p.x-300,p.y-900)<70){mission=2;money+=800}
+ if(mission===2&&Math.hypot(p.x-1600,p.y-900)<70){mission=3;money+=1200}
+ if(wanted>0&&Math.random()<.006)spawnPolice();
+ for(const z of police){
+  let dx=p.x-z.x,dy=p.y-z.y,L=Math.hypot(dx,dy)||1;z.x+=dx/L*(1.5+wanted*.25);z.y+=dy/L*(1.5+wanted*.25);
+  if(L<35){health-=.25;if(health<1){health=100;wanted=0;money=Math.max(0,money-200);p.x=620;p.y=430;inCar=false}}
+ }
+}
+function spawnPolice(){if(police.length<6)police.push({x:Math.random()*1800+50,y:Math.random()*1000+50})}
+function world(){
+ ctx.fillStyle='#79a95d';ctx.fillRect(0,0,W,H);
+ let ox=W/2-p.x,oy=H/2-p.y;ctx.save();ctx.translate(ox,oy);
+ // roads
+ ctx.fillStyle='#454545';for(const r of [[0,150,2050,95],[0,415,2050,95],[280,0,95,1250],[760,0,95,1250],[1240,0,95,1250],[1560,0,95,1250]])ctx.fillRect(...r);
+ // buildings
+ for(let gx=0;gx<4;gx++)for(let gy=0;gy<4;gy++){let bx=40+gx*500,by=35+gy*300;ctx.fillStyle='#77736d';ctx.fillRect(bx,by,190,115);ctx.fillStyle='#9fcbd2';for(let i=0;i<4;i++)for(let j=0;j<2;j++)ctx.fillRect(bx+18+i*42,by+18+j*40,18,15)}
+ // markers
+ if(mission===0){ctx.fillStyle='#ffd400';ctx.beginPath();ctx.arc(1260,170,27,0,7);ctx.fill()}
+ if(mission===1){ctx.fillStyle='#35d9ff';ctx.beginPath();ctx.arc(300,900,27,0,7);ctx.fill()}
+ if(mission===2){ctx.fillStyle='#35d9ff';ctx.beginPath();ctx.arc(1600,900,27,0,7);ctx.fill()}
+ // money pickup
+ ctx.fillStyle='#3cff76';ctx.beginPath();ctx.arc(1050,650,18,0,7);ctx.fill();
+ if(Math.hypot(p.x-1050,p.y-650)<35){money+=10;ctx.fillStyle='#79a95d';ctx.beginPath();ctx.arc(1050,650,20,0,7);ctx.fill()}
+ // car
+ ctx.save();ctx.translate(car.x,car.y);ctx.rotate(car.a);ctx.fillStyle='#d52b2b';ctx.fillRect(-25,-43,50,86);ctx.fillStyle='#8fcdd8';ctx.fillRect(-18,-25,36,23);ctx.fillStyle='#111';ctx.fillRect(-31,-30,8,20);ctx.fillRect(23,-30,8,20);ctx.fillRect(-31,10,8,20);ctx.fillRect(23,10,8,20);ctx.restore();
+ // police
+ for(const z of police){ctx.fillStyle='#214eaa';ctx.beginPath();ctx.arc(z.x,z.y,17,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(z.x-12,z.y-3,z.x+12-z.x,6)}
+ if(!inCar){ctx.fillStyle='#273f9c';ctx.beginPath();ctx.arc(p.x,p.y,15,0,7);ctx.fill();ctx.fillStyle='#f1c39a';ctx.beginPath();ctx.arc(p.x,p.y-17,9,0,7);ctx.fill()}
+ ctx.restore();
+ // HUD
+ ctx.fillStyle='#000b';ctx.fillRect(10,10,225,92);ctx.fillStyle='#fff';ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.font='bold 18px Arial';ctx.fillText('NIKO CITY',22,33);ctx.font='14px Arial';ctx.fillText('💰 $'+money,22,55);ctx.fillText('❤️ '+Math.max(0,Math.round(health)),22,76);ctx.fillText('👮 Axtarış: '+wanted+'/5',105,55);ctx.fillText(mission===3?'MISSİYA TAMAM!':mission===0?'Sarı markerə get':'Mavi markerə get',105,76);
+ buttons=[];
+ buttons.push(...[button(70,H-105,43,{t:'▲',f:()=>move(0,-1)}),button(70,H-25,43,{t:'▼',f:()=>move(0,1)}),button(25,H-65,43,{t:'◀',f:()=>move(-1,0)}),button(115,H-65,43,{t:'▶',f:()=>move(1,0)})]);
+ buttons.push(...[button(W-155,H-55,48,{t:'E',f:interact}),button(W-55,H-55,48,{t:'F',f:action}),button(W-105,H-145,42,{t:'Q',f:missionStart})]);
+}
+function move(dx,dy){let s=inCar?8:5;if(inCar){car.x+=dx*s;car.y+=dy*s;p.x=car.x;p.y=car.y}else{p.x+=dx*s;p.y+=dy*s}}
+function loop(){update();world();requestAnimationFrame(loop)}loop();
+</script></body></html>
